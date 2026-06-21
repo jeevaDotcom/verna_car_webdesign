@@ -1,0 +1,451 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Website Name Here — Experience It</title>
+  <meta name="description" content="An immersive, Apple-style 3D scroll experience showcasing our product in stunning detail." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --glass-bg: rgba(10, 10, 15, 0.55);
+      --glass-border: rgba(255, 255, 255, 0.10);
+      --glass-shadow: 0 8px 48px rgba(0,0,0,0.6), 0 1.5px 0 rgba(255,255,255,0.07) inset;
+      --accent: #a78bfa;
+      --accent-2: #38bdf8;
+      --text-primary: #f0f0f5;
+      --text-secondary: rgba(200, 200, 220, 0.72);
+    }
+
+    html { scroll-behavior: auto; }
+
+    body {
+      background: #000;
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    #scroll-container { height: 800vh; position: relative; }
+
+    #sticky-stage {
+      position: sticky;
+      top: 0; left: 0;
+      width: 100%; height: 100vh;
+      overflow: hidden;
+    }
+
+    #hero-canvas {
+      display: block;
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+    }
+
+    /* Progress */
+    #progress-bar {
+      position: fixed; top: 0; left: 0;
+      height: 2.5px; width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      z-index: 100;
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    /* Loader */
+    #loader {
+      position: fixed; inset: 0;
+      background: #000;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 999;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+    }
+    #loader.hidden { opacity: 0; visibility: hidden; }
+    .loader-ring {
+      width: 52px; height: 52px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    .loader-text {
+      margin-top: 18px; font-size: 13px;
+      letter-spacing: 0.18em; color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Navbar */
+    #navbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 40px;
+      background: rgba(0,0,0,0);
+      transition: background 0.4s;
+    }
+    #navbar.scrolled {
+      background: rgba(5,5,8,0.75);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .nav-logo {
+      font-size: 1.15rem; font-weight: 700; letter-spacing: 0.04em;
+      background: linear-gradient(135deg, #fff 40%, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a {
+      color: rgba(255,255,255,0.65); text-decoration: none;
+      font-size: 0.875rem; font-weight: 500; transition: color 0.25s;
+    }
+    .nav-links a:hover { color: #fff; }
+    .nav-cta {
+      padding: 8px 22px; border-radius: 100px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border: none; color: #fff; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: opacity 0.25s, transform 0.25s;
+      letter-spacing: 0.02em; font-family: inherit;
+    }
+    .nav-cta:hover { opacity: 0.85; transform: scale(1.04); }
+
+    /* Text Boxes */
+    .text-box {
+      position: fixed; z-index: 40;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1),
+                  transform 0.6s cubic-bezier(0.4,0,0.2,1);
+      transform: translateY(28px);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+      backdrop-filter: blur(28px) saturate(1.6);
+      -webkit-backdrop-filter: blur(28px) saturate(1.6);
+      border-radius: 20px;
+      padding: 28px 32px; max-width: 380px;
+    }
+    .text-box.visible { opacity: 1; transform: translateY(0); }
+
+    .text-box .tag {
+      display: inline-block; font-size: 10px; font-weight: 600;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(167,139,250,0.12);
+      border: 1px solid rgba(167,139,250,0.25);
+      border-radius: 100px; padding: 3px 12px; margin-bottom: 14px;
+    }
+    .text-box h2 {
+      font-size: 1.7rem; font-weight: 700; line-height: 1.22;
+      letter-spacing: -0.02em; margin-bottom: 10px;
+      background: linear-gradient(135deg, #fff 55%, rgba(255,255,255,0.55));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .text-box p { font-size: 0.93rem; line-height: 1.68; color: var(--text-secondary); }
+    .text-box .divider {
+      width: 36px; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 2px; margin: 14px 0;
+    }
+
+    #box-1 { bottom: 14%; left: 6%; }
+    #box-2 { top: 50%; right: 6%; transform: translateY(calc(-50% + 28px)); }
+    #box-2.visible { transform: translateY(-50%); }
+    #box-3 { bottom: 12%; left: 50%; transform: translateX(-50%) translateY(28px); }
+    #box-3.visible { transform: translateX(-50%) translateY(0); }
+
+    /* Scroll Hint */
+    #scroll-hint {
+      position: fixed; bottom: 36px; left: 50%;
+      transform: translateX(-50%); z-index: 40;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      opacity: 1; transition: opacity 0.5s;
+      color: rgba(255,255,255,0.4); font-size: 11px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+    }
+    #scroll-hint.hidden { opacity: 0; pointer-events: none; }
+    .scroll-mouse {
+      width: 22px; height: 36px;
+      border: 1.5px solid rgba(255,255,255,0.25);
+      border-radius: 100px; display: flex; justify-content: center; padding-top: 6px;
+    }
+    .scroll-dot {
+      width: 3px; height: 8px;
+      background: rgba(255,255,255,0.5); border-radius: 100px;
+      animation: scrollDot 1.7s cubic-bezier(0.4,0,0.2,1) infinite;
+    }
+    @keyframes scrollDot {
+      0%   { transform: translateY(0); opacity: 1; }
+      60%  { transform: translateY(9px); opacity: 0; }
+      61%  { transform: translateY(0); opacity: 0; }
+      100% { opacity: 1; }
+    }
+
+    /* End Section */
+    #end-section {
+      position: fixed; inset: 0; z-index: 38;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.8s ease;
+    }
+    #end-section.visible { opacity: 1; pointer-events: auto; }
+    #end-section h1 {
+      font-size: clamp(2.5rem,6vw,5rem); font-weight: 800;
+      letter-spacing: -0.035em; line-height: 1.1;
+      background: linear-gradient(135deg, #fff 40%, var(--accent) 75%, var(--accent-2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 20px;
+    }
+    #end-section p {
+      font-size: 1.05rem; color: var(--text-secondary);
+      max-width: 480px; line-height: 1.7; margin-bottom: 36px;
+    }
+    .cta-btn {
+      padding: 14px 40px; border-radius: 100px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border: none; color: #fff; font-size: 1rem; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: opacity 0.25s, transform 0.25s, box-shadow 0.25s;
+      box-shadow: 0 0 32px rgba(167,139,250,0.35); letter-spacing: 0.02em;
+    }
+    .cta-btn:hover { opacity: 0.88; transform: scale(1.05); box-shadow: 0 0 48px rgba(167,139,250,0.55); }
+
+    /* Grain */
+    #grain {
+      position: fixed; inset: 0; z-index: 45; pointer-events: none; opacity: 0.028;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-size: 180px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="grain" aria-hidden="true"></div>
+<div id="progress-bar" role="progressbar" aria-label="Scroll progress"></div>
+
+<div id="loader" aria-label="Loading">
+  <div class="loader-ring"></div>
+  <p class="loader-text">Loading Experience</p>
+</div>
+
+<nav id="navbar" aria-label="Main navigation">
+  <span class="nav-logo">Website Name Here</span>
+  <ul class="nav-links" role="list">
+    <li><a href="#">Features</a></li>
+    <li><a href="#">Design</a></li>
+    <li><a href="#">Specs</a></li>
+  </ul>
+  <button class="nav-cta" id="nav-cta-btn">Order Now</button>
+</nav>
+
+<div id="scroll-hint" aria-label="Scroll to explore">
+  <div class="scroll-mouse"><div class="scroll-dot"></div></div>
+  <span>Scroll</span>
+</div>
+
+<div id="scroll-container">
+  <div id="sticky-stage">
+    <canvas id="hero-canvas" aria-label="3D product animation"></canvas>
+
+    <div class="text-box" id="box-1" role="region" aria-label="Feature 1">
+      <span class="tag">Design</span>
+      <h2>Heading 1 here</h2>
+      <div class="divider"></div>
+      <p>Subtext 1 here — a brief, compelling description that complements your first keyframe moment and keeps the viewer engaged.</p>
+    </div>
+
+    <div class="text-box" id="box-2" role="region" aria-label="Feature 2">
+      <span class="tag">Engineering</span>
+      <h2>Heading 2 here</h2>
+      <div class="divider"></div>
+      <p>Subtext 2 here — highlight the technical brilliance or unique value proposition of your product at this scroll point.</p>
+    </div>
+
+    <div class="text-box" id="box-3" role="region" aria-label="Feature 3">
+      <span class="tag">Performance</span>
+      <h2>Heading 3 here</h2>
+      <div class="divider"></div>
+      <p>Subtext 3 here — close with a powerful statement that reinforces brand identity and leads toward the call to action.</p>
+    </div>
+  </div>
+</div>
+
+<div id="end-section" role="region" aria-label="Call to action">
+  <h1>Experience the<br>Future, Today.</h1>
+  <p>Every detail has been obsessively crafted. Scroll back up to relive it, or take the next step.</p>
+  <button class="cta-btn" id="end-cta-btn">Get Yours</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ─── Config ─────────────────────────────────────── */
+  var FRAME_COUNT   = 250;
+  var IMG_DIR       = '';
+  var IMG_PREFIX    = 'ezgif-frame-';
+  var IMG_EXT       = '.jpg';
+  var CHUNK_SIZE    = 10;
+
+  var TEXT_WINDOWS = [
+    { id: 'box-1', show: 0.10, hide: 0.32 },
+    { id: 'box-2', show: 0.38, hide: 0.62 },
+    { id: 'box-3', show: 0.68, hide: 0.88 }
+  ];
+
+  var END_THRESHOLD = 0.93;
+
+  /* ─── Elements ───────────────────────────────────── */
+  var canvas      = document.getElementById('hero-canvas');
+  var ctx         = canvas.getContext('2d');
+  var loader      = document.getElementById('loader');
+  var progressBar = document.getElementById('progress-bar');
+  var navbar      = document.getElementById('navbar');
+  var scrollHint  = document.getElementById('scroll-hint');
+  var endSection  = document.getElementById('end-section');
+
+  /* ─── State ──────────────────────────────────────── */
+  var frames       = new Array(FRAME_COUNT).fill(null);
+  var currentFrame = 0;
+  var rafPending   = false;
+  var scrollPct    = 0;
+  var dpr          = window.devicePixelRatio || 1;
+
+  /* ─── Helpers ────────────────────────────────────── */
+  function framePath(i) {
+    var n = String(i + 1).padStart(3, '0');
+    return IMG_DIR + IMG_PREFIX + n + IMG_EXT;
+  }
+
+  function loadImage(index) {
+    return new Promise(function (resolve) {
+      if (frames[index]) { resolve(frames[index]); return; }
+      var img = new Image();
+      img.onload  = function () { frames[index] = img; resolve(img); };
+      img.onerror = function () { resolve(null); };
+      img.src = framePath(index);
+    });
+  }
+
+  /* ─── Canvas resize ──────────────────────────────── */
+  function resizeCanvas() {
+    dpr = window.devicePixelRatio || 1;
+    canvas.width  = Math.round(window.innerWidth  * dpr);
+    canvas.height = Math.round(window.innerHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawFrame(currentFrame);
+  }
+
+  /* ─── Draw (object-fit cover math) ──────────────── */
+  function drawFrame(index) {
+    var img = frames[index];
+    if (!img) return;
+
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    var iw = img.naturalWidth;
+    var ih = img.naturalHeight;
+
+    var scale = Math.max(vw / iw, vh / ih);
+    var dw = iw * scale;
+    var dh = ih * scale;
+    var dx = (vw - dw) / 2;
+    var dy = (vh - dh) / 2;
+
+    ctx.clearRect(0, 0, vw, vh);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  /* ─── Scroll percentage ──────────────────────────── */
+  function getScrollPct() {
+    var el  = document.documentElement;
+    var max = el.scrollHeight - el.clientHeight;
+    return max > 0 ? Math.min(window.scrollY / max, 1) : 0;
+  }
+
+  /* ─── RAF tick ───────────────────────────────────── */
+  function tick() {
+    rafPending = false;
+
+    var targetFrame = Math.min(
+      Math.floor(scrollPct * (FRAME_COUNT - 1)),
+      FRAME_COUNT - 1
+    );
+
+    /* Nearest loaded fallback */
+    var best = targetFrame;
+    if (!frames[best]) {
+      for (var d = 1; d < FRAME_COUNT; d++) {
+        if (targetFrame - d >= 0 && frames[targetFrame - d]) { best = targetFrame - d; break; }
+        if (targetFrame + d < FRAME_COUNT && frames[targetFrame + d]) { best = targetFrame + d; break; }
+      }
+    }
+
+    if (best !== currentFrame || best === 0) {
+      currentFrame = best;
+      drawFrame(currentFrame);
+    }
+
+    /* UI updates */
+    progressBar.style.width = (scrollPct * 100).toFixed(2) + '%';
+    navbar.classList.toggle('scrolled', window.scrollY > 60);
+    scrollHint.classList.toggle('hidden', scrollPct > 0.04);
+
+    TEXT_WINDOWS.forEach(function (w) {
+      var el = document.getElementById(w.id);
+      el.classList.toggle('visible', scrollPct >= w.show && scrollPct < w.hide);
+    });
+
+    endSection.classList.toggle('visible', scrollPct >= END_THRESHOLD);
+  }
+
+  function onScroll() {
+    scrollPct = getScrollPct();
+    if (!rafPending) {
+      rafPending = true;
+      requestAnimationFrame(tick);
+    }
+  }
+
+  /* ─── Lazy chunk loader ──────────────────────────── */
+  function loadChunk(startIndex) {
+    if (startIndex >= FRAME_COUNT) return;
+    var end = Math.min(startIndex + CHUNK_SIZE, FRAME_COUNT);
+    var promises = [];
+    for (var i = startIndex; i < end; i++) promises.push(loadImage(i));
+    Promise.all(promises).then(function () {
+      var schedule = window.requestIdleCallback
+        ? function (cb) { window.requestIdleCallback(cb, { timeout: 2000 }); }
+        : function (cb) { setTimeout(cb, 16); };
+      schedule(function () { loadChunk(end); });
+    });
+  }
+
+  /* ─── Boot ───────────────────────────────────────── */
+  function init() {
+    loadImage(0).then(function () {
+      resizeCanvas();
+      drawFrame(0);
+      loader.classList.add('hidden');
+
+      var schedule = window.requestIdleCallback
+        ? function (cb) { window.requestIdleCallback(cb, { timeout: 2000 }); }
+        : function (cb) { setTimeout(cb, 100); };
+      schedule(function () { loadChunk(1); });
+
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', resizeCanvas);
+      onScroll();
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
